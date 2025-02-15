@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,30 +6,23 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  RefreshControl,
   Platform,
   SafeAreaView,
-  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
-import Animated, {
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-} from 'react-native-reanimated';
+import * as Location from 'expo-location';
 import { useWeather } from '../../context/WeatherContext';
 import { WeatherData } from '../../types/weather';
-
-const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
 export default function WeatherScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState<WeatherData | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const scale = useSharedValue(1);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [locationError, setLocationError] = useState('');
+
   const {
     weatherData,
     recentSearches,
@@ -41,24 +34,94 @@ export default function WeatherScreen() {
     addRecentSearch,
     toggleFavorite,
     toggleTemperatureUnit,
-    refreshWeatherData,
   } = useWeather();
 
-  const filteredCities = useMemo(() => {
-    if (!searchQuery) return [];
-    return weatherData.filter(city =>
-      city.city.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, weatherData]);
+  useEffect(() => {
+    getCurrentLocationWeather();
+  }, []);
 
-  const handleCitySelect = useCallback((city: WeatherData) => {
-    scale.value = withSpring(0.95, {}, () => {
-      scale.value = withSpring(1);
+  const findNearestCity = (latitude: number, longitude: number) => {
+    // Calculate distance between two points using Haversine formula
+    const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+      const R = 6371; // Earth's radius in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
+    // Find the nearest city from the weather data
+    let nearestCity = weatherData[0];
+    let minDistance = Number.MAX_VALUE;
+
+    weatherData.forEach(city => {
+      if (city.coordinates) {
+        const distance = getDistance(
+          latitude,
+          longitude,
+          city.coordinates.lat,
+          city.coordinates.lon
+        );
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestCity = city;
+        }
+      }
     });
+
+    return nearestCity;
+  };
+
+  const getCurrentLocationWeather = async () => {
+    try {
+      setIsLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        // If location permission is denied, show Islamabad weather by default
+        const defaultCity = weatherData.find(city => city.city === 'Islamabad');
+        if (defaultCity) {
+          setSelectedCity(defaultCity);
+          addRecentSearch(defaultCity.city);
+        }
+        setLocationError('Using default location (Islamabad)');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const nearestCity = findNearestCity(location.coords.latitude, location.coords.longitude);
+      
+      if (nearestCity) {
+        setSelectedCity(nearestCity);
+        addRecentSearch(nearestCity.city);
+      }
+    } catch (error) {
+      // If there's any error, show Islamabad weather
+      const defaultCity = weatherData.find(city => city.city === 'Islamabad');
+      if (defaultCity) {
+        setSelectedCity(defaultCity);
+        addRecentSearch(defaultCity.city);
+      }
+      setLocationError('Unable to get location. Showing Islamabad weather.');
+      console.error('Error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredCities = weatherData.filter(city =>
+    city.city.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleCitySelect = (city: WeatherData) => {
     setSelectedCity(city);
     addRecentSearch(city.city);
     setSearchQuery('');
-  }, []);
+  };
 
   const getTemperature = (temp: number) => {
     if (isCelsius) return `${temp}°C`;
@@ -67,203 +130,122 @@ export default function WeatherScreen() {
 
   const getWeatherBackground = (weather: string) => {
     switch (weather.toLowerCase()) {
-      case 'sunny':
-        return { backgroundColor: '#FFD700' };
-      case 'cloudy':
-        return { backgroundColor: '#808080' };
-      case 'rainy':
-        return { backgroundColor: '#4682B4' };
-      default:
-        return { backgroundColor: '#87CEEB' };
+      case 'sunny': return { backgroundColor: '#FFD700' };
+      case 'cloudy': return { backgroundColor: '#808080' };
+      case 'rainy': return { backgroundColor: '#4682B4' };
+      default: return { backgroundColor: '#87CEEB' };
     }
   };
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await refreshWeatherData();
-    setRefreshing(false);
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-    };
-  });
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={styles.loadingText}>Getting weather information...</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
       <StatusBar style={isDarkMode ? 'light' : 'dark'} />
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoid}
-      >
-        {isOffline && (
-          <View style={styles.offlineBanner}>
-            <Text style={styles.offlineText}>You are offline. Showing cached data.</Text>
-          </View>
-        )}
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputContainer}>
-            <FontAwesome name="search" size={20} color="#666" style={styles.searchIcon} />
-            <TextInput
-              style={[styles.searchInput, isDarkMode && styles.darkInput]}
-              placeholder="Search city..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholderTextColor={isDarkMode ? '#888' : '#666'}
-            />
-          </View>
-          <TouchableOpacity
-            style={styles.unitToggle}
-            onPress={toggleTemperatureUnit}
-          >
-            <Text style={styles.unitText}>{isCelsius ? '°C' : '°F'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Search Results */}
-        {searchQuery !== '' && (
-          <FlatList
-            data={filteredCities}
-            keyExtractor={(item) => item.city}
-            style={styles.searchResults}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <AnimatedTouchableOpacity
-                style={[styles.searchResultItem, animatedStyle]}
-                onPress={() => handleCitySelect(item)}
-              >
-                <Text style={isDarkMode ? styles.darkText : styles.lightText}>
-                  {item.city}
-                </Text>
-              </AnimatedTouchableOpacity>
-            )}
+      
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={[styles.searchInputContainer, isDarkMode && styles.darkInput]}>
+          <FontAwesome name="search" size={20} color={isDarkMode ? '#888' : '#666'} />
+          <TextInput
+            style={[styles.searchInput, isDarkMode && styles.darkText]}
+            placeholder="Search city..."
+            placeholderTextColor={isDarkMode ? '#888' : '#666'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-        )}
+        </View>
+        <TouchableOpacity style={styles.unitToggle} onPress={toggleTemperatureUnit}>
+          <Text style={styles.unitText}>{isCelsius ? '°C' : '°F'}</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Content Container */}
-        <View style={styles.contentContainer}>
-          {/* Map View */}
-          {currentLocation && !searchQuery && !selectedCity && (
+      {/* Search Results */}
+      {searchQuery !== '' && (
+        <FlatList
+          data={filteredCities}
+          keyExtractor={(item) => item.city}
+          style={[styles.searchResults, isDarkMode && styles.darkSearchResults]}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[styles.searchResultItem, isDarkMode && styles.darkSearchResultItem]}
+              onPress={() => handleCitySelect(item)}
+            >
+              <Text style={isDarkMode ? styles.darkText : styles.lightText}>
+                {item.city}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
+      )}
+
+      {/* Weather Display */}
+      {selectedCity && (
+        <View style={[styles.weatherContainer, getWeatherBackground(selectedCity.weather)]}>
+          <View style={styles.weatherHeader}>
+            <Text style={styles.cityName}>{selectedCity.city}</Text>
+            <TouchableOpacity onPress={() => toggleFavorite(selectedCity.city)}>
+              <FontAwesome
+                name={favorites.includes(selectedCity.city) ? 'star' : 'star-o'}
+                size={24}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.temperature}>
+            {getTemperature(selectedCity.temperature)}
+          </Text>
+          <Text style={styles.weatherCondition}>{selectedCity.weather}</Text>
+
+          <View style={styles.weatherDetails}>
+            <View style={styles.weatherDetail}>
+              <FontAwesome name="tint" size={20} color="#fff" />
+              <Text style={styles.detailText}>{selectedCity.humidity}%</Text>
+            </View>
+            <View style={styles.weatherDetail}>
+              <FontAwesome name="wind" size={20} color="#fff" />
+              <Text style={styles.detailText}>{selectedCity.windSpeed} km/h</Text>
+            </View>
+          </View>
+
+          {selectedCity.coordinates && (
             <View style={styles.mapContainer}>
               <MapView
                 style={styles.map}
                 initialRegion={{
-                  latitude: currentLocation.lat,
-                  longitude: currentLocation.lon,
+                  latitude: selectedCity.coordinates.lat,
+                  longitude: selectedCity.coordinates.lon,
                   latitudeDelta: 0.0922,
                   longitudeDelta: 0.0421,
                 }}
               >
                 <Marker
                   coordinate={{
-                    latitude: currentLocation.lat,
-                    longitude: currentLocation.lon,
+                    latitude: selectedCity.coordinates.lat,
+                    longitude: selectedCity.coordinates.lon,
                   }}
-                  title="Your Location"
+                  title={selectedCity.city}
                 />
               </MapView>
             </View>
           )}
-
-          {/* Recent Searches */}
-          {!searchQuery && !selectedCity && (
-            <FlatList
-              data={recentSearches}
-              keyExtractor={(item) => item}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-              }
-              style={styles.recentContainer}
-              renderItem={({ item }) => {
-                const cityData = weatherData.find((c) => c.city === item);
-                if (!cityData) return null;
-                return (
-                  <AnimatedTouchableOpacity
-                    style={[
-                      styles.recentItem,
-                      getWeatherBackground(cityData.weather),
-                      animatedStyle,
-                    ]}
-                    onPress={() => handleCitySelect(cityData)}
-                  >
-                    <Text style={styles.recentItemText}>{item}</Text>
-                    <Text style={styles.recentItemTemp}>
-                      {getTemperature(cityData.temperature)}
-                    </Text>
-                  </AnimatedTouchableOpacity>
-                );
-              }}
-            />
-          )}
-
-          {/* Weather Display */}
-          {selectedCity && (
-            <Animated.View
-              style={[
-                styles.weatherContainer,
-                getWeatherBackground(selectedCity.weather),
-                animatedStyle,
-              ]}
-            >
-              <View style={styles.weatherHeader}>
-                <Text style={styles.cityName}>{selectedCity.city}</Text>
-                <TouchableOpacity
-                  onPress={() => toggleFavorite(selectedCity.city)}
-                >
-                  <FontAwesome
-                    name={favorites.includes(selectedCity.city) ? 'star' : 'star-o'}
-                    size={24}
-                    color="#fff"
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.temperature}>
-                {getTemperature(selectedCity.temperature)}
-              </Text>
-              <Text style={styles.weatherCondition}>{selectedCity.weather}</Text>
-              
-              <View style={styles.weatherDetails}>
-                <View style={styles.weatherDetail}>
-                  <FontAwesome name="tint" size={20} color="#fff" />
-                  <Text style={styles.detailText}>{selectedCity.humidity}%</Text>
-                </View>
-                <View style={styles.weatherDetail}>
-                  <FontAwesome name="wind" size={20} color="#fff" />
-                  <Text style={styles.detailText}>{selectedCity.windSpeed} km/h</Text>
-                </View>
-              </View>
-
-              {selectedCity.coordinates && (
-                <View style={styles.mapContainer}>
-                  <MapView
-                    style={styles.map}
-                    initialRegion={{
-                      latitude: selectedCity.coordinates.lat,
-                      longitude: selectedCity.coordinates.lon,
-                      latitudeDelta: 0.0922,
-                      longitudeDelta: 0.0421,
-                    }}
-                  >
-                    <Marker
-                      coordinate={{
-                        latitude: selectedCity.coordinates.lat,
-                        longitude: selectedCity.coordinates.lon,
-                      }}
-                      title={selectedCity.city}
-                    />
-                  </MapView>
-                </View>
-              )}
-            </Animated.View>
-          )}
         </View>
-      </KeyboardAvoidingView>
+      )}
+
+      {locationError !== '' && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{locationError}</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -276,29 +258,20 @@ const styles = StyleSheet.create({
   darkContainer: {
     backgroundColor: '#1a1a1a',
   },
-  keyboardAvoid: {
-    flex: 1,
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  contentContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  offlineBanner: {
-    backgroundColor: '#ff9800',
-    padding: 10,
-    marginBottom: 10,
-  },
-  offlineText: {
-    color: '#fff',
-    textAlign: 'center',
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
   searchContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
+    padding: 16,
     gap: 10,
+    backgroundColor: 'transparent',
   },
   searchInputContainer: {
     flex: 1,
@@ -307,19 +280,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 25,
     paddingHorizontal: 15,
-  },
-  searchIcon: {
-    marginRight: 10,
+    height: 50,
   },
   searchInput: {
     flex: 1,
-    height: 50,
+    marginLeft: 10,
     fontSize: 16,
     color: '#000',
   },
   darkInput: {
     backgroundColor: '#333',
+  },
+  darkText: {
     color: '#fff',
+  },
+  lightText: {
+    color: '#000',
   },
   unitToggle: {
     width: 50,
@@ -337,8 +313,8 @@ const styles = StyleSheet.create({
   searchResults: {
     maxHeight: 200,
     backgroundColor: '#fff',
+    margin: 16,
     borderRadius: 10,
-    marginHorizontal: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -351,37 +327,22 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  darkSearchResults: {
+    backgroundColor: '#333',
+  },
   searchResultItem: {
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  recentContainer: {
-    maxHeight: 120,
-    marginBottom: 20,
-  },
-  recentItem: {
-    padding: 15,
-    borderRadius: 10,
-    marginRight: 10,
-    minWidth: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  recentItemText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  recentItemTemp: {
-    color: '#fff',
-    fontSize: 14,
+  darkSearchResultItem: {
+    borderBottomColor: '#444',
   },
   weatherContainer: {
+    margin: 16,
     padding: 20,
     borderRadius: 20,
     alignItems: 'center',
-    margin: 10,
   },
   weatherHeader: {
     flexDirection: 'row',
@@ -420,12 +381,6 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontSize: 16,
   },
-  lightText: {
-    color: '#000',
-  },
-  darkText: {
-    color: '#fff',
-  },
   mapContainer: {
     width: '100%',
     height: 200,
@@ -436,5 +391,15 @@ const styles = StyleSheet.create({
   map: {
     width: '100%',
     height: '100%',
+  },
+  errorContainer: {
+    padding: 16,
+    backgroundColor: '#ff5252',
+    margin: 16,
+    borderRadius: 10,
+  },
+  errorText: {
+    color: '#fff',
+    textAlign: 'center',
   },
 });
