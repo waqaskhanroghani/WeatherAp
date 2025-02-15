@@ -3,11 +3,9 @@ import {
   StyleSheet,
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   FlatList,
   RefreshControl,
-  Keyboard,
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -15,26 +13,23 @@ import { FontAwesome } from '@expo/vector-icons';
 import { useWeather } from '../../context/WeatherContext';
 import * as Location from 'expo-location';
 import { WeatherData } from '../../types/weather';
+import SearchBar from '../../components/SearchBar';
 
 export default function WeatherScreen() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [locationError, setLocationError] = useState('');
 
   const {
-    weatherData,
     recentSearches,
     favorites,
     isCelsius,
     isDarkMode,
     isOffline,
-    searchSuggestions,
     addRecentSearch,
     toggleFavorite,
     toggleTemperatureUnit,
-    searchCities,
     getWeatherByCity,
     refreshWeather,
   } = useWeather();
@@ -73,7 +68,8 @@ export default function WeatherScreen() {
     let nearestCity = null;
     let shortestDistance = Infinity;
 
-    weatherData.forEach(city => {
+    const cities = require('../../data/weatherData.json').cities;
+    cities.forEach(city => {
       if (city.coordinates) {
         const distance = getDistance(
           lat,
@@ -107,16 +103,9 @@ export default function WeatherScreen() {
     return deg * (Math.PI / 180);
   };
 
-  const handleSearchChange = (text: string) => {
-    setSearchQuery(text);
-    searchCities(text);
-  };
-
   const handleCitySelect = (city: WeatherData) => {
     setSelectedCity(city);
     addRecentSearch(city.city);
-    setSearchQuery('');
-    Keyboard.dismiss();
   };
 
   const onRefresh = useCallback(async () => {
@@ -168,72 +157,19 @@ export default function WeatherScreen() {
     <View style={[styles.container, isDarkMode && styles.darkContainer]}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <View style={[styles.searchInputContainer, isDarkMode && styles.darkInput]}>
-          <FontAwesome name="search" size={20} color={isDarkMode ? '#888' : '#666'} />
-          <TextInput
-            style={[styles.searchInput, isDarkMode && styles.darkText]}
-            placeholder="Search city or country..."
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-            autoCapitalize="words"
-            autoCorrect={false}
+        <View style={styles.searchBarWrapper}>
+          <SearchBar 
+            onSelectCity={handleCitySelect}
+            isDarkMode={isDarkMode}
           />
-          {searchQuery !== '' && (
-            <TouchableOpacity 
-              style={styles.clearButton}
-              onPress={() => handleSearchChange('')}
-            >
-              <FontAwesome name="times-circle" size={20} color={isDarkMode ? '#888' : '#666'} />
-            </TouchableOpacity>
-          )}
         </View>
         <TouchableOpacity style={styles.unitToggle} onPress={toggleTemperatureUnit}>
           <Text style={styles.unitText}>{isCelsius ? '°C' : '°F'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Search Results */}
-      {searchQuery !== '' && searchSuggestions.length > 0 && (
-        <View style={[styles.searchResultsContainer, isDarkMode && styles.darkSearchResults]}>
-          <FlatList
-            data={searchSuggestions}
-            keyExtractor={(item) => item.city}
-            style={styles.searchResults}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[styles.searchResultItem, isDarkMode && styles.darkSearchResultItem]}
-                onPress={() => handleCitySelect(item)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.cityInfo}>
-                  <Text style={[styles.searchCityName, isDarkMode && styles.darkText]}>
-                    {item.city}
-                  </Text>
-                  <Text style={[styles.searchCountryName, isDarkMode && styles.darkText]}>
-                    {item.country}
-                  </Text>
-                </View>
-                <View style={styles.weatherInfo}>
-                  <FontAwesome 
-                    name={getWeatherIcon(item.weather)} 
-                    size={20} 
-                    color={getWeatherColor(item.weather)} 
-                    style={styles.searchWeatherIcon}
-                  />
-                  <Text style={[styles.searchTemperature, isDarkMode && styles.darkText]}>
-                    {getTemperature(item.temperature)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      )}
-
       {/* Recent Searches */}
-      {searchQuery === '' && recentSearches.length > 0 && (
+      {recentSearches.length > 0 && (
         <View style={styles.recentContainer}>
           <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Recent Searches</Text>
           <FlatList
@@ -362,29 +298,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 8,
   },
-  searchInputContainer: {
+  searchBarWrapper: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  darkInput: {
-    backgroundColor: '#333',
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#000',
-  },
-  darkText: {
-    color: '#fff',
-  },
-  clearButton: {
-    padding: 4,
   },
   unitToggle: {
     padding: 8,
@@ -394,63 +309,6 @@ const styles = StyleSheet.create({
   unitText: {
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  searchResultsContainer: {
-    maxHeight: 200,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-      },
-      android: {
-        elevation: 5,
-      },
-    }),
-  },
-  darkSearchResults: {
-    backgroundColor: '#333',
-  },
-  searchResults: {
-    flex: 1,
-  },
-  searchResultItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  darkSearchResultItem: {
-    borderBottomColor: '#444',
-  },
-  cityInfo: {
-    flex: 1,
-  },
-  searchCityName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  searchCountryName: {
-    fontSize: 14,
-    color: '#666',
-  },
-  weatherInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  searchWeatherIcon: {
-    marginRight: 8,
-  },
-  searchTemperature: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   recentContainer: {
     marginBottom: 16,
@@ -569,5 +427,8 @@ const styles = StyleSheet.create({
   offlineText: {
     color: '#fff',
     textAlign: 'center',
+  },
+  darkText: {
+    color: '#fff',
   },
 });
