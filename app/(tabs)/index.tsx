@@ -8,12 +8,14 @@ import {
   RefreshControl,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useWeather } from '../../context/WeatherContext';
 import * as Location from 'expo-location';
 import { WeatherData } from '../../types/weather';
 import SearchBar from '../../components/SearchBar';
+import WeatherMap from '../../components/WeatherMap';
 
 export default function WeatherScreen() {
   const [selectedCity, setSelectedCity] = useState<WeatherData | null>(null);
@@ -168,110 +170,126 @@ export default function WeatherScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Recent Searches */}
-      {recentSearches.length > 0 && (
-        <View style={styles.recentContainer}>
-          <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Recent Searches</Text>
-          <FlatList
-            data={recentSearches}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => {
-              const cityData = getWeatherByCity(item);
-              if (!cityData) return null;
-              
-              return (
-                <TouchableOpacity
-                  style={[styles.recentItem, isDarkMode && styles.darkRecentItem]}
-                  onPress={() => handleCitySelect(cityData)}
-                >
-                  <Text style={[styles.recentCity, isDarkMode && styles.darkText]}>{item}</Text>
-                  <FontAwesome 
-                    name={getWeatherIcon(cityData.weather)} 
-                    size={24} 
-                    color={getWeatherColor(cityData.weather)} 
-                  />
-                  <Text style={[styles.recentTemp, isDarkMode && styles.darkText]}>
-                    {getTemperature(cityData.temperature)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={isDarkMode ? '#fff' : '#000'}
           />
-        </View>
-      )}
-
-      {/* Selected City Weather */}
-      {selectedCity && (
-        <View 
-          style={[
-            styles.weatherCard,
-            isDarkMode && styles.darkWeatherCard,
-            { backgroundColor: getWeatherColor(selectedCity.weather) + '20' }
-          ]}
-        >
-          <View style={styles.weatherHeader}>
-            <View>
-              <Text style={[styles.cityName, isDarkMode && styles.darkText]}>
-                {selectedCity.city}
-              </Text>
-              <Text style={[styles.countryName, isDarkMode && styles.darkText]}>
-                {selectedCity.country}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => toggleFavorite(selectedCity.city)}
-              style={styles.favoriteButton}
-            >
-              <FontAwesome
-                name={favorites.includes(selectedCity.city) ? 'star' : 'star-o'}
-                size={24}
-                color={favorites.includes(selectedCity.city) ? '#FFD700' : (isDarkMode ? '#fff' : '#000')}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.weatherInfo}>
-            <FontAwesome
-              name={getWeatherIcon(selectedCity.weather)}
-              size={64}
-              color={getWeatherColor(selectedCity.weather)}
-              style={styles.weatherIcon}
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Recent Searches */}
+        {recentSearches.length > 0 && (
+          <View style={styles.recentContainer}>
+            <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Recent Searches</Text>
+            <FlatList
+              data={recentSearches}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => {
+                const cityData = getWeatherByCity(item);
+                if (!cityData) return null;
+                
+                return (
+                  <TouchableOpacity
+                    style={[styles.recentItem, isDarkMode && styles.darkRecentItem]}
+                    onPress={() => handleCitySelect(cityData)}
+                  >
+                    <Text style={[styles.recentCity, isDarkMode && styles.darkText]}>{item}</Text>
+                    <FontAwesome 
+                      name={getWeatherIcon(cityData.weather)} 
+                      size={24} 
+                      color={getWeatherColor(cityData.weather)} 
+                    />
+                    <Text style={[styles.recentTemp, isDarkMode && styles.darkText]}>
+                      {getTemperature(cityData.temperature)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
             />
-            <Text style={[styles.temperature, isDarkMode && styles.darkText]}>
-              {getTemperature(selectedCity.temperature)}
-            </Text>
-            <Text style={[styles.weatherCondition, isDarkMode && styles.darkText]}>
-              {selectedCity.weather}
-            </Text>
           </View>
+        )}
 
-          <View style={styles.weatherDetails}>
-            <View style={styles.detailItem}>
-              <FontAwesome name="tint" size={20} color={isDarkMode ? '#fff' : '#000'} />
-              <Text style={[styles.detailText, isDarkMode && styles.darkText]}>
-                {selectedCity.humidity}%
-              </Text>
-              <Text style={[styles.detailLabel, isDarkMode && styles.darkText]}>Humidity</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <FontAwesome name="location-arrow" size={20} color={isDarkMode ? '#fff' : '#000'} />
-              <Text style={[styles.detailText, isDarkMode && styles.darkText]}>
-                {selectedCity.windSpeed} km/h
-              </Text>
-              <Text style={[styles.detailLabel, isDarkMode && styles.darkText]}>Wind Speed</Text>
-            </View>
-          </View>
-        </View>
-      )}
+        {/* Selected City Weather */}
+        {selectedCity && (
+          <>
+            <View 
+              style={[
+                styles.weatherCard,
+                isDarkMode && styles.darkWeatherCard,
+                { backgroundColor: getWeatherColor(selectedCity.weather) + '20' }
+              ]}
+            >
+              <View style={styles.weatherHeader}>
+                <View>
+                  <Text style={[styles.cityName, isDarkMode && styles.darkText]}>
+                    {selectedCity.city}
+                  </Text>
+                  <Text style={[styles.countryName, isDarkMode && styles.darkText]}>
+                    {selectedCity.country}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => toggleFavorite(selectedCity.city)}
+                  style={styles.favoriteButton}
+                >
+                  <FontAwesome
+                    name={favorites.includes(selectedCity.city) ? 'star' : 'star-o'}
+                    size={24}
+                    color={favorites.includes(selectedCity.city) ? '#FFD700' : (isDarkMode ? '#fff' : '#000')}
+                  />
+                </TouchableOpacity>
+              </View>
 
-      {/* Error Message */}
-      {locationError !== '' && (
-        <Text style={[styles.errorText, isDarkMode && styles.darkText]}>
-          {locationError}
-        </Text>
-      )}
+              <View style={styles.weatherInfo}>
+                <FontAwesome
+                  name={getWeatherIcon(selectedCity.weather)}
+                  size={64}
+                  color={getWeatherColor(selectedCity.weather)}
+                  style={styles.weatherIcon}
+                />
+                <Text style={[styles.temperature, isDarkMode && styles.darkText]}>
+                  {getTemperature(selectedCity.temperature)}
+                </Text>
+                <Text style={[styles.weatherCondition, isDarkMode && styles.darkText]}>
+                  {selectedCity.weather}
+                </Text>
+              </View>
+
+              <View style={styles.weatherDetails}>
+                <View style={styles.detailItem}>
+                  <FontAwesome name="tint" size={20} color={isDarkMode ? '#fff' : '#000'} />
+                  <Text style={[styles.detailText, isDarkMode && styles.darkText]}>
+                    {selectedCity.humidity}%
+                  </Text>
+                  <Text style={[styles.detailLabel, isDarkMode && styles.darkText]}>Humidity</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <FontAwesome name="location-arrow" size={20} color={isDarkMode ? '#fff' : '#000'} />
+                  <Text style={[styles.detailText, isDarkMode && styles.darkText]}>
+                    {selectedCity.windSpeed} km/h
+                  </Text>
+                  <Text style={[styles.detailLabel, isDarkMode && styles.darkText]}>Wind Speed</Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Weather Map */}
+            <WeatherMap />
+          </>
+        )}
+
+        {/* Error Message */}
+        {locationError !== '' && (
+          <Text style={[styles.errorText, isDarkMode && styles.darkText]}>
+            {locationError}
+          </Text>
+        )}
+      </ScrollView>
 
       {/* Offline Message */}
       {isOffline && (
@@ -287,7 +305,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 16,
   },
   darkContainer: {
     backgroundColor: '#1a1a1a',
@@ -295,7 +312,8 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    padding: 16,
+    paddingBottom: 8,
     gap: 8,
   },
   searchBarWrapper: {
