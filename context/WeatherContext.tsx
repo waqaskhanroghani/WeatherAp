@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
@@ -10,11 +10,15 @@ const STORAGE_KEYS = {
   FAVORITES: 'weather_favorites',
   LAST_WEATHER: 'weather_last_weather',
   SETTINGS: 'weather_settings',
+  WEATHER_CACHE: 'weather_data_cache',
 };
+
+const MAX_RECENT_SEARCHES = 10;
 
 interface WeatherContextType {
   weatherData: WeatherData[];
   recentSearches: string[];
+  recentSearchesData: WeatherData[];
   favorites: string[];
   isCelsius: boolean;
   isDarkMode: boolean;
@@ -23,6 +27,7 @@ interface WeatherContextType {
   lastUpdated: number | null;
   searchSuggestions: WeatherData[];
   addRecentSearch: (city: string) => void;
+  clearRecentSearches: () => void;
   toggleFavorite: (city: string) => void;
   toggleTemperatureUnit: () => void;
   toggleTheme: () => void;
@@ -44,6 +49,7 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
   const [currentLocationWeather, setCurrentLocationWeather] = useState<WeatherData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [searchSuggestions, setSearchSuggestions] = useState<WeatherData[]>([]);
+  const [weatherCache, setWeatherCache] = useState<{ [key: string]: WeatherData }>({});
 
   useEffect(() => {
     loadSavedData();
@@ -57,12 +63,14 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
         savedRecent,
         savedFavorites,
         savedSettings,
-        savedWeather
+        savedWeather,
+        savedCache
       ] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.RECENT_SEARCHES),
         AsyncStorage.getItem(STORAGE_KEYS.FAVORITES),
         AsyncStorage.getItem(STORAGE_KEYS.SETTINGS),
         AsyncStorage.getItem(STORAGE_KEYS.LAST_WEATHER),
+        AsyncStorage.getItem(STORAGE_KEYS.WEATHER_CACHE),
       ]);
 
       if (savedRecent) setRecentSearches(JSON.parse(savedRecent));
@@ -76,10 +84,49 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
         const weather = JSON.parse(savedWeather);
         setLastUpdated(weather.timestamp);
       }
+      if (savedCache) {
+        setWeatherCache(JSON.parse(savedCache));
+      }
     } catch (error) {
       console.error('Error loading saved data:', error);
     }
   };
+
+  const addRecentSearch = useCallback(async (city: string) => {
+    setRecentSearches(prev => {
+      const filtered = prev.filter(item => item !== city);
+      const updated = [city, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+      AsyncStorage.setItem(STORAGE_KEYS.RECENT_SEARCHES, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const getWeatherByCity = useCallback((city: string): WeatherData | null => {
+    if (weatherCache[city]) {
+      return weatherCache[city];
+    }
+
+    const cityData = weatherData.find(w => w.city.toLowerCase() === city.toLowerCase());
+    if (cityData) {
+      const updatedCache = { ...weatherCache, [city]: cityData };
+      setWeatherCache(updatedCache);
+      AsyncStorage.setItem(STORAGE_KEYS.WEATHER_CACHE, JSON.stringify(updatedCache));
+      return cityData;
+    }
+
+    return null;
+  }, [weatherData, weatherCache]);
+
+  const recentSearchesData = useMemo(() => {
+    return recentSearches
+      .map(city => getWeatherByCity(city))
+      .filter((data): data is WeatherData => data !== null);
+  }, [recentSearches, getWeatherByCity]);
+
+  const clearRecentSearches = useCallback(async () => {
+    setRecentSearches([]);
+    await AsyncStorage.removeItem(STORAGE_KEYS.RECENT_SEARCHES);
+  }, []);
 
   const checkDarkMode = () => {
     const hours = new Date().getHours();
@@ -108,35 +155,6 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
 
     setSearchSuggestions(suggestions);
   }, [weatherData]);
-
-  const addRecentSearch = async (city: string) => {
-    try {
-      const newRecentSearches = [
-        city,
-        ...recentSearches.filter(s => s !== city)
-      ].slice(0, 5);
-
-      setRecentSearches(newRecentSearches);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.RECENT_SEARCHES,
-        JSON.stringify(newRecentSearches)
-      );
-
-      // Cache the weather data
-      const cityWeather = getWeatherByCity(city);
-      if (cityWeather) {
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.LAST_WEATHER,
-          JSON.stringify({
-            data: cityWeather,
-            timestamp: Date.now()
-          })
-        );
-      }
-    } catch (error) {
-      console.error('Error saving recent search:', error);
-    }
-  };
 
   const toggleFavorite = async (city: string) => {
     try {
@@ -185,17 +203,9 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
     isDarkMode
   });
 
-  const getWeatherByCity = (cityName: string): WeatherData | null => {
-    return weatherData.find(
-      city => city.city.toLowerCase() === cityName.toLowerCase()
-    ) || null;
-  };
-
   const refreshWeather = async () => {
     try {
       setLastUpdated(Date.now());
-      // In a real app, this would fetch fresh data from an API
-      // For now, we'll just update the timestamp
       await AsyncStorage.setItem(
         STORAGE_KEYS.LAST_WEATHER,
         JSON.stringify({
@@ -271,24 +281,30 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
     getCurrentLocationWeather();
   }, [getCurrentLocationWeather]);
 
-  const value = {
-    weatherData,
-    recentSearches,
-    favorites,
-    isCelsius,
-    isDarkMode,
-    isOffline,
-    currentLocationWeather,
-    getWeatherByCity,
-    addRecentSearch,
-    toggleFavorite,
-    toggleTemperatureUnit,
-    refreshWeather,
-    getCurrentLocationWeather,
-  };
-
   return (
-    <WeatherContext.Provider value={value}>
+    <WeatherContext.Provider
+      value={{
+        weatherData,
+        recentSearches,
+        recentSearchesData,
+        favorites,
+        isCelsius,
+        isDarkMode,
+        isOffline,
+        currentLocationWeather,
+        lastUpdated,
+        searchSuggestions,
+        addRecentSearch,
+        clearRecentSearches,
+        toggleFavorite,
+        toggleTemperatureUnit,
+        toggleTheme,
+        searchCities,
+        getWeatherByCity,
+        refreshWeather,
+        getCurrentLocationWeather,
+      }}
+    >
       {children}
     </WeatherContext.Provider>
   );
