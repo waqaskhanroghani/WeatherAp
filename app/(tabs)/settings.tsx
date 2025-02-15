@@ -68,7 +68,7 @@ export default function SettingsScreen() {
           Weather
         </Text>
         {renderSettingItem(
-          'thermometer',
+          'sun-o',
           'Temperature Unit',
           'Switch between Celsius and Fahrenheit',
           isCelsius,

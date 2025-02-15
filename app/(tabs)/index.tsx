@@ -256,7 +256,7 @@ export default function WeatherScreen() {
               <Text style={[styles.detailLabel, isDarkMode && styles.darkText]}>Humidity</Text>
             </View>
             <View style={styles.detailItem}>
-              <FontAwesome name="wind" size={20} color={isDarkMode ? '#fff' : '#000'} />
+              <FontAwesome name="location-arrow" size={20} color={isDarkMode ? '#fff' : '#000'} />
               <Text style={[styles.detailText, isDarkMode && styles.darkText]}>
                 {selectedCity.windSpeed} km/h
               </Text>
