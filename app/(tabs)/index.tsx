@@ -18,113 +18,82 @@ import WeatherMap from "../../components/WeatherMap";
 import RecentSearches from "../../components/RecentSearches";
 
 export default function WeatherScreen() {
-  const [selectedCity, setSelectedCity] = useState<WeatherData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [locationError, setLocationError] = useState("");
-
   const {
+    weatherData,
     recentSearches,
+    recentSearchesData,
     favorites,
     isCelsius,
     isDarkMode,
     isOffline,
+    currentLocationWeather,
+    lastUpdated,
     addRecentSearch,
+    clearRecentSearches,
     toggleFavorite,
     toggleTemperatureUnit,
     getWeatherByCity,
     refreshWeather,
+    getCurrentLocationWeather,
   } = useWeather();
 
+  const [selectedCity, setSelectedCity] = useState<WeatherData | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [locationError, setLocationError] = useState("");
+
   useEffect(() => {
-    getCurrentLocationWeather();
+    const initializeWeather = async () => {
+      try {
+        if (recentSearches.length > 0) {
+          const lastCity = getWeatherByCity(recentSearches[0]);
+          if (lastCity) {
+            setSelectedCity(lastCity);
+          }
+        } else {
+          const location = await getCurrentLocationWeather();
+          if (location) {
+            setSelectedCity(location);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing weather:', error);
+        setLocationError('Unable to get weather data. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeWeather();
   }, []);
 
-  const getCurrentLocationWeather = async () => {
+  const handleCitySelect = useCallback(async (city: WeatherData) => {
     try {
-      setIsLoading(true);
-      setLocationError("");
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setLocationError("Location permission denied");
-        setIsLoading(false);
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({});
-      const nearestCity = findNearestCity(
-        location.coords.latitude,
-        location.coords.longitude
-      );
-      if (nearestCity) {
-        setSelectedCity(nearestCity);
-        addRecentSearch(nearestCity.city);
-      }
+      setSelectedCity(city);
+      await addRecentSearch(city.city);
     } catch (error) {
-      setLocationError("Error getting location");
-      console.error("Location error:", error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error selecting city:', error);
+      setLocationError('Unable to select city. Please try again.');
     }
-  };
-
-  const findNearestCity = (lat: number, lon: number): WeatherData | null => {
-    let nearestCity = null;
-    let shortestDistance = Infinity;
-
-    const cities = require("../../data/weatherData.json").cities;
-    cities.forEach((city) => {
-      if (city.coordinates) {
-        const distance = getDistance(
-          lat,
-          lon,
-          city.coordinates.lat,
-          city.coordinates.lon
-        );
-        if (distance < shortestDistance) {
-          shortestDistance = distance;
-          nearestCity = city;
-        }
-      }
-    });
-
-    return nearestCity;
-  };
-
-  const getDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) *
-        Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const deg2rad = (deg: number): number => {
-    return deg * (Math.PI / 180);
-  };
-
-  const handleCitySelect = (city: WeatherData) => {
-    setSelectedCity(city);
-    addRecentSearch(city.city);
-  };
+  }, [addRecentSearch]);
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await refreshWeather();
-    setIsRefreshing(false);
-  }, [refreshWeather]);
+    try {
+      await refreshWeather();
+      if (selectedCity) {
+        const refreshedCity = getWeatherByCity(selectedCity.city);
+        if (refreshedCity) {
+          setSelectedCity(refreshedCity);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing weather:', error);
+      setLocationError('Unable to refresh weather data. Please try again.');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshWeather, selectedCity, getWeatherByCity]);
 
   const getWeatherIcon = (condition: string) => {
     switch (condition.toLowerCase()) {
@@ -133,17 +102,13 @@ export default function WeatherScreen() {
       case "cloudy":
         return "cloud";
       case "rainy":
-        return "umbrella";
-      case "thunderstorm":
+        return "cloud-rain";
+      case "stormy":
         return "bolt";
-      case "foggy":
-        return "align-center";
-      case "windy":
-        return "flag";
-      case "clear":
-        return "star";
+      case "snowy":
+        return "snowflake-o";
       default:
-        return "question";
+        return "question-circle-o";
     }
   };
 
@@ -154,22 +119,18 @@ export default function WeatherScreen() {
       case "cloudy":
         return "#808080";
       case "rainy":
-        return "#4169E1";
-      case "thunderstorm":
+        return "#4682B4";
+      case "stormy":
         return "#483D8B";
-      case "foggy":
-        return "#B8B8B8";
-      case "windy":
+      case "snowy":
         return "#87CEEB";
-      case "clear":
-        return "#00BFFF";
       default:
-        return "#666666";
+        return "#000000";
     }
   };
 
   const getTemperature = (temp: number) => {
-    if (isCelsius) return `${temp}°C`;
+    if (isCelsius) return `${Math.round(temp)}°C`;
     return `${Math.round((temp * 9) / 5 + 32)}°F`;
   };
 
@@ -183,7 +144,6 @@ export default function WeatherScreen() {
 
   return (
     <View style={[styles.container, isDarkMode && styles.darkContainer]}>
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBarWrapper}>
           <SearchBar onSelectCity={handleCitySelect} isDarkMode={isDarkMode} />
@@ -208,13 +168,13 @@ export default function WeatherScreen() {
         ListHeaderComponent={() => (
           <>
             <RecentSearches
-              recentSearches={recentSearches}
+              recentSearches={recentSearchesData}
               isDarkMode={isDarkMode}
-              getWeatherByCity={getWeatherByCity}
               getWeatherIcon={getWeatherIcon}
               getWeatherColor={getWeatherColor}
               getTemperature={getTemperature}
               onCitySelect={handleCitySelect}
+              onClearSearches={clearRecentSearches}
             />
 
             {selectedCity && (
