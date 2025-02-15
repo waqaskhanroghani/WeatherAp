@@ -5,12 +5,13 @@ export interface Coordinates {
 
 export interface WeatherData {
   city: string;
+  country: string;
   temperature: number;
-  weather: string;
+  weather: 'Sunny' | 'Cloudy' | 'Rainy' | 'Clear' | 'Partly Cloudy' | 'Thunderstorm' | 'Foggy' | 'Windy';
   humidity: number;
   windSpeed: number;
-  coordinates: Coordinates;
-  lastUpdated?: string;
+  coordinates?: Coordinates;
+  lastUpdated?: number;
 }
 
 export interface WeatherContextType {
