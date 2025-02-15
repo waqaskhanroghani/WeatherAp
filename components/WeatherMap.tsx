@@ -1,16 +1,22 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { StyleSheet, View, Dimensions, TouchableOpacity, Text } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useWeather } from '../context/WeatherContext';
 import { FontAwesome } from '@expo/vector-icons';
+import { WeatherData } from '../types/weather';
 
 const { width } = Dimensions.get('window');
 const ASPECT_RATIO = 16 / 9;
 const LATITUDE_DELTA = 0.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-export default function WeatherMap() {
+interface WeatherMapProps {
+  selectedCity: WeatherData | null;
+}
+
+export default function WeatherMap({ selectedCity }: WeatherMapProps) {
+  const mapRef = useRef<MapView>(null);
   const [mapRegion, setMapRegion] = useState<{
     latitude: number;
     longitude: number;
@@ -20,21 +26,39 @@ export default function WeatherMap() {
 
   const { 
     weatherData, 
-    selectedCity, 
     currentLocationWeather,
     getCurrentLocationWeather,
     addRecentSearch
   } = useWeather();
 
+  const animateToRegion = useCallback((coordinates: { latitude: number; longitude: number }) => {
+    if (mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      }, 1000); // 1 second animation
+    }
+  }, []);
+
   const handleLocationPress = useCallback(async () => {
     const weather = await getCurrentLocationWeather();
-    if (weather) {
+    if (weather && weather.coordinates) {
       addRecentSearch(weather.city);
+      animateToRegion({
+        latitude: weather.coordinates.lat,
+        longitude: weather.coordinates.lon
+      });
     }
-  }, [getCurrentLocationWeather, addRecentSearch]);
+  }, [getCurrentLocationWeather, addRecentSearch, animateToRegion]);
 
   useEffect(() => {
     if (selectedCity?.coordinates) {
+      animateToRegion({
+        latitude: selectedCity.coordinates.lat,
+        longitude: selectedCity.coordinates.lon
+      });
       setMapRegion({
         latitude: selectedCity.coordinates.lat,
         longitude: selectedCity.coordinates.lon,
@@ -45,6 +69,10 @@ export default function WeatherMap() {
     }
 
     if (currentLocationWeather?.coordinates) {
+      animateToRegion({
+        latitude: currentLocationWeather.coordinates.lat,
+        longitude: currentLocationWeather.coordinates.lon
+      });
       setMapRegion({
         latitude: currentLocationWeather.coordinates.lat,
         longitude: currentLocationWeather.coordinates.lon,
@@ -58,7 +86,6 @@ export default function WeatherMap() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          // Default to a central location if permission not granted
           setMapRegion({
             latitude: 0,
             longitude: 0,
@@ -69,15 +96,19 @@ export default function WeatherMap() {
         }
 
         const location = await Location.getCurrentPositionAsync({});
-        setMapRegion({
+        const newRegion = {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           latitudeDelta: LATITUDE_DELTA,
           longitudeDelta: LONGITUDE_DELTA,
+        };
+        setMapRegion(newRegion);
+        animateToRegion({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
         });
       } catch (error) {
         console.error('Error getting location:', error);
-        // Default to a central location on error
         setMapRegion({
           latitude: 0,
           longitude: 0,
@@ -86,19 +117,22 @@ export default function WeatherMap() {
         });
       }
     })();
-  }, [selectedCity, currentLocationWeather]);
+  }, [selectedCity, currentLocationWeather, animateToRegion]);
 
   if (!mapRegion) return null;
 
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={styles.map}
+        initialRegion={mapRegion}
         region={mapRegion}
         showsUserLocation={true}
-        showsMyLocationButton={true}
+        showsMyLocationButton={false}
+        showsCompass={true}
+        rotateEnabled={false}
       >
-        {/* Weather Data Markers */}
         {weatherData.map((city) => {
           if (!city.coordinates) return null;
           
@@ -114,13 +148,22 @@ export default function WeatherMap() {
               }}
               title={city.city}
               description={`${city.temperature}°C - ${city.weather}`}
-              pinColor={isSelected ? '#FF0000' : isCurrentLocation ? '#4A90E2' : '#FFA500'}
-            />
+            >
+              <View style={[
+                styles.markerContainer,
+                isSelected && styles.selectedMarker
+              ]}>
+                <FontAwesome 
+                  name={isSelected ? 'map-marker' : 'map-pin'} 
+                  size={isSelected ? 40 : 30} 
+                  color={isSelected ? '#FF0000' : isCurrentLocation ? '#4A90E2' : '#FFA500'} 
+                />
+              </View>
+            </Marker>
           );
         })}
       </MapView>
 
-      {/* Current Location Button */}
       <TouchableOpacity 
         style={styles.locationButton}
         onPress={handleLocationPress}
@@ -133,7 +176,7 @@ export default function WeatherMap() {
 
 const styles = StyleSheet.create({
   container: {
-    height: width * (9/16), // 16:9 aspect ratio
+    height: width * (9/16),
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 12,
@@ -162,5 +205,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedMarker: {
+    transform: [{ scale: 1.2 }],
   },
 });
