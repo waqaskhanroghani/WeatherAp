@@ -1,0 +1,148 @@
+{
+  "cities": [
+    {
+      "city": "Islamabad",
+      "country": "Pakistan",
+      "temperature": 25,
+      "weather": "Sunny",
+      "humidity": 45,
+      "windSpeed": 8,
+      "coordinates": {
+        "lat": 33.6844,
+        "lon": 73.0479
+      }
+    },
+    {
+      "city": "Lahore",
+      "country": "Pakistan",
+      "temperature": 28,
+      "weather": "Clear",
+      "humidity": 55,
+      "windSpeed": 6,
+      "coordinates": {
+        "lat": 31.5204,
+        "lon": 74.3587
+      }
+    },
+    {
+      "city": "Karachi",
+      "country": "Pakistan",
+      "temperature": 32,
+      "weather": "Sunny",
+      "humidity": 65,
+      "windSpeed": 12,
+      "coordinates": {
+        "lat": 24.8607,
+        "lon": 67.0011
+      }
+    },
+    {
+      "city": "New York",
+      "country": "United States",
+      "temperature": 18,
+      "weather": "Cloudy",
+      "humidity": 65,
+      "windSpeed": 10,
+      "coordinates": {
+        "lat": 40.7128,
+        "lon": -74.0060
+      }
+    },
+    {
+      "city": "London",
+      "country": "United Kingdom",
+      "temperature": 12,
+      "weather": "Rainy",
+      "humidity": 80,
+      "windSpeed": 15,
+      "coordinates": {
+        "lat": 51.5074,
+        "lon": -0.1278
+      }
+    },
+    {
+      "city": "Dubai",
+      "country": "United Arab Emirates",
+      "temperature": 35,
+      "weather": "Sunny",
+      "humidity": 20,
+      "windSpeed": 5,
+      "coordinates": {
+        "lat": 25.2048,
+        "lon": 55.2708
+      }
+    },
+    {
+      "city": "Tokyo",
+      "country": "Japan",
+      "temperature": 22,
+      "weather": "Partly Cloudy",
+      "humidity": 70,
+      "windSpeed": 8,
+      "coordinates": {
+        "lat": 35.6762,
+        "lon": 139.6503
+      }
+    },
+    {
+      "city": "Sydney",
+      "country": "Australia",
+      "temperature": 26,
+      "weather": "Clear",
+      "humidity": 60,
+      "windSpeed": 12,
+      "coordinates": {
+        "lat": -33.8688,
+        "lon": 151.2093
+      }
+    },
+    {
+      "city": "Paris",
+      "country": "France",
+      "temperature": 15,
+      "weather": "Cloudy",
+      "humidity": 75,
+      "windSpeed": 9,
+      "coordinates": {
+        "lat": 48.8566,
+        "lon": 2.3522
+      }
+    },
+    {
+      "city": "Toronto",
+      "country": "Canada",
+      "temperature": 8,
+      "weather": "Windy",
+      "humidity": 45,
+      "windSpeed": 20,
+      "coordinates": {
+        "lat": 43.6532,
+        "lon": -79.3832
+      }
+    },
+    {
+      "city": "Mumbai",
+      "country": "India",
+      "temperature": 30,
+      "weather": "Sunny",
+      "humidity": 78,
+      "windSpeed": 7,
+      "coordinates": {
+        "lat": 19.0760,
+        "lon": 72.8777
+      }
+    },
+    {
+      "city": "Beijing",
+      "country": "China",
+      "temperature": 20,
+      "weather": "Foggy",
+      "humidity": 68,
+      "windSpeed": 6,
+      "coordinates": {
+        "lat": 39.9042,
+        "lon": 116.4074
+      }
+    }
+  ]
+}

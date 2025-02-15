@@ -5,7 +5,7 @@
     "weather": "Cloudy",
     "humidity": 65,
     "windSpeed": 10,
-    "coordinates": {"lat": 40.7128, "lon": -74.0060}
+    "coordinates": { "lat": 40.7128, "lon": -74.006 }
   },
   {
     "city": "London",
@@ -13,7 +13,15 @@
     "weather": "Rainy",
     "humidity": 80,
     "windSpeed": 15,
-    "coordinates": {"lat": 51.5074, "lon": -0.1278}
+    "coordinates": { "lat": 51.5074, "lon": -0.1278 }
+  },
+  {
+    "city": "mardan",
+    "temperature": 12,
+    "weather": "Rainy",
+    "humidity": 80,
+    "windSpeed": 15,
+    "coordinates": { "lat": 51.5074, "lon": -0.1278 }
   },
   {
     "city": "Dubai",
@@ -21,7 +29,7 @@
     "weather": "Sunny",
     "humidity": 20,
     "windSpeed": 5,
-    "coordinates": {"lat": 25.2048, "lon": 55.2708}
+    "coordinates": { "lat": 25.2048, "lon": 55.2708 }
   },
   {
     "city": "Tokyo",
@@ -29,7 +37,7 @@
     "weather": "Partly Cloudy",
     "humidity": 70,
     "windSpeed": 8,
-    "coordinates": {"lat": 35.6762, "lon": 139.6503}
+    "coordinates": { "lat": 35.6762, "lon": 139.6503 }
   },
   {
     "city": "Sydney",
@@ -37,6 +45,6 @@
     "weather": "Sunny",
     "humidity": 55,
     "windSpeed": 12,
-    "coordinates": {"lat": -33.8688, "lon": 151.2093}
+    "coordinates": { "lat": -33.8688, "lon": 151.2093 }
   }
 ]
