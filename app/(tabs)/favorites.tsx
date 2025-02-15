@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   SafeAreaView,
+  RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ export default function FavoritesScreen() {
     isCelsius,
     isDarkMode,
     toggleFavorite,
+    refreshWeather,
   } = useWeather();
 
   const getFavoriteWeather = (city: string) => {
@@ -57,6 +59,13 @@ export default function FavoritesScreen() {
           data={favorites}
           keyExtractor={(item) => item}
           contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={false}
+              onRefresh={refreshWeather}
+              tintColor={isDarkMode ? '#fff' : '#000'}
+            />
+          }
           renderItem={({ item }) => {
             const weatherInfo = getFavoriteWeather(item);
             if (!weatherInfo) return null;
