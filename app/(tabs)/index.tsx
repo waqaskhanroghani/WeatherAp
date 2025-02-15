@@ -4,7 +4,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  FlatList,
   RefreshControl,
   Platform,
   ActivityIndicator,
@@ -14,6 +13,7 @@ import { useWeather } from '../../context/WeatherContext';
 import * as Location from 'expo-location';
 import { WeatherData } from '../../types/weather';
 import SearchBar from '../../components/SearchBar';
+import { FlashList } from '@shopify/flash-list';
 
 export default function WeatherScreen() {
   const [selectedCity, setSelectedCity] = useState<WeatherData | null>(null);
@@ -172,33 +172,36 @@ export default function WeatherScreen() {
       {recentSearches.length > 0 && (
         <View style={styles.recentContainer}>
           <Text style={[styles.sectionTitle, isDarkMode && styles.darkText]}>Recent Searches</Text>
-          <FlatList
-            data={recentSearches}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => {
-              const cityData = getWeatherByCity(item);
-              if (!cityData) return null;
-              
-              return (
-                <TouchableOpacity
-                  style={[styles.recentItem, isDarkMode && styles.darkRecentItem]}
-                  onPress={() => handleCitySelect(cityData)}
-                >
-                  <Text style={[styles.recentCity, isDarkMode && styles.darkText]}>{item}</Text>
-                  <FontAwesome 
-                    name={getWeatherIcon(cityData.weather)} 
-                    size={24} 
-                    color={getWeatherColor(cityData.weather)} 
-                  />
-                  <Text style={[styles.recentTemp, isDarkMode && styles.darkText]}>
-                    {getTemperature(cityData.temperature)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
+          <View style={styles.flashListContainer}>
+            <FlashList
+              data={recentSearches}
+              horizontal
+              estimatedItemSize={150}
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => {
+                const cityData = getWeatherByCity(item);
+                if (!cityData) return null;
+                
+                return (
+                  <TouchableOpacity
+                    style={[styles.recentItem, isDarkMode && styles.darkRecentItem]}
+                    onPress={() => handleCitySelect(cityData)}
+                  >
+                    <Text style={[styles.recentCity, isDarkMode && styles.darkText]}>{item}</Text>
+                    <FontAwesome 
+                      name={getWeatherIcon(cityData.weather)} 
+                      size={24} 
+                      color={getWeatherColor(cityData.weather)} 
+                    />
+                    <Text style={[styles.recentTemp, isDarkMode && styles.darkText]}>
+                      {getTemperature(cityData.temperature)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
         </View>
       )}
 
@@ -317,6 +320,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 8,
+  },
+  flashListContainer: {
+    height: 120,
+    width: '100%',
   },
   recentItem: {
     backgroundColor: '#f5f5f5',
