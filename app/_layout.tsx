@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Slot } from 'expo-router';
+import { Slot, Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { WeatherProvider } from '../context/WeatherContext';
 
@@ -11,7 +11,12 @@ export default function RootLayout() {
 
   return (
     <WeatherProvider>
-      <Slot />
+      <Stack>
+        <Stack.Screen
+          name="(tabs)"
+          options={{ headerShown: false }}
+        />
+      </Stack>
     </WeatherProvider>
   );
 }

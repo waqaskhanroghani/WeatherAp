@@ -9,6 +9,8 @@ import {
   Platform,
   SafeAreaView,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
@@ -147,106 +149,118 @@ export default function WeatherScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
-      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
-      
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchInputContainer, isDarkMode && styles.darkInput]}>
-          <FontAwesome name="search" size={20} color={isDarkMode ? '#888' : '#666'} />
-          <TextInput
-            style={[styles.searchInput, isDarkMode && styles.darkText]}
-            placeholder="Search city..."
-            placeholderTextColor={isDarkMode ? '#888' : '#666'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
+        <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+        
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchInputContainer, isDarkMode && styles.darkInput]}>
+            <FontAwesome name="search" size={20} color={isDarkMode ? '#888' : '#666'} />
+            <TextInput
+              style={[styles.searchInput, isDarkMode && styles.darkText]}
+              placeholder="Search city..."
+              placeholderTextColor={isDarkMode ? '#888' : '#666'}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="search"
+              enablesReturnKeyAutomatically
+              onSubmitEditing={Keyboard.dismiss}
+              keyboardType="default"
+              editable={true}
+            />
+          </View>
+          <TouchableOpacity style={styles.unitToggle} onPress={toggleTemperatureUnit}>
+            <Text style={styles.unitText}>{isCelsius ? '°C' : '°F'}</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.unitToggle} onPress={toggleTemperatureUnit}>
-          <Text style={styles.unitText}>{isCelsius ? '°C' : '°F'}</Text>
-        </TouchableOpacity>
-      </View>
 
-      {/* Search Results */}
-      {searchQuery !== '' && (
-        <FlatList
-          data={filteredCities}
-          keyExtractor={(item) => item.city}
-          style={[styles.searchResults, isDarkMode && styles.darkSearchResults]}
-          keyboardShouldPersistTaps="handled"
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.searchResultItem, isDarkMode && styles.darkSearchResultItem]}
-              onPress={() => handleCitySelect(item)}
-            >
-              <Text style={isDarkMode ? styles.darkText : styles.lightText}>
-                {item.city}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      )}
-
-      {/* Weather Display */}
-      {selectedCity && (
-        <View style={[styles.weatherContainer, getWeatherBackground(selectedCity.weather)]}>
-          <View style={styles.weatherHeader}>
-            <Text style={styles.cityName}>{selectedCity.city}</Text>
-            <TouchableOpacity onPress={() => toggleFavorite(selectedCity.city)}>
-              <FontAwesome
-                name={favorites.includes(selectedCity.city) ? 'star' : 'star-o'}
-                size={24}
-                color="#fff"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.temperature}>
-            {getTemperature(selectedCity.temperature)}
-          </Text>
-          <Text style={styles.weatherCondition}>{selectedCity.weather}</Text>
-
-          <View style={styles.weatherDetails}>
-            <View style={styles.weatherDetail}>
-              <FontAwesome name="tint" size={20} color="#fff" />
-              <Text style={styles.detailText}>{selectedCity.humidity}%</Text>
-            </View>
-            <View style={styles.weatherDetail}>
-              <FontAwesome name="wind" size={20} color="#fff" />
-              <Text style={styles.detailText}>{selectedCity.windSpeed} km/h</Text>
-            </View>
-          </View>
-
-          {selectedCity.coordinates && (
-            <View style={styles.mapContainer}>
-              <MapView
-                style={styles.map}
-                initialRegion={{
-                  latitude: selectedCity.coordinates.lat,
-                  longitude: selectedCity.coordinates.lon,
-                  latitudeDelta: 0.0922,
-                  longitudeDelta: 0.0421,
-                }}
+        {/* Search Results */}
+        {searchQuery !== '' && (
+          <FlatList
+            data={filteredCities}
+            keyExtractor={(item) => item.city}
+            style={[styles.searchResults, isDarkMode && styles.darkSearchResults]}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.searchResultItem, isDarkMode && styles.darkSearchResultItem]}
+                onPress={() => handleCitySelect(item)}
               >
-                <Marker
-                  coordinate={{
+                <Text style={isDarkMode ? styles.darkText : styles.lightText}>
+                  {item.city}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        )}
+
+        {/* Weather Display */}
+        {selectedCity && (
+          <View style={[styles.weatherContainer, getWeatherBackground(selectedCity.weather)]}>
+            <View style={styles.weatherHeader}>
+              <Text style={styles.cityName}>{selectedCity.city}</Text>
+              <TouchableOpacity onPress={() => toggleFavorite(selectedCity.city)}>
+                <FontAwesome
+                  name={favorites.includes(selectedCity.city) ? 'star' : 'star-o'}
+                  size={24}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.temperature}>
+              {getTemperature(selectedCity.temperature)}
+            </Text>
+            <Text style={styles.weatherCondition}>{selectedCity.weather}</Text>
+
+            <View style={styles.weatherDetails}>
+              <View style={styles.weatherDetail}>
+                <FontAwesome name="tint" size={20} color="#fff" />
+                <Text style={styles.detailText}>{selectedCity.humidity}%</Text>
+              </View>
+              <View style={styles.weatherDetail}>
+                <FontAwesome name="wind" size={20} color="#fff" />
+                <Text style={styles.detailText}>{selectedCity.windSpeed} km/h</Text>
+              </View>
+            </View>
+
+            {selectedCity.coordinates && (
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  initialRegion={{
                     latitude: selectedCity.coordinates.lat,
                     longitude: selectedCity.coordinates.lon,
+                    latitudeDelta: 0.0922,
+                    longitudeDelta: 0.0421,
                   }}
-                  title={selectedCity.city}
-                />
-              </MapView>
-            </View>
-          )}
-        </View>
-      )}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: selectedCity.coordinates.lat,
+                      longitude: selectedCity.coordinates.lon,
+                    }}
+                    title={selectedCity.city}
+                  />
+                </MapView>
+              </View>
+            )}
+          </View>
+        )}
 
-      {locationError !== '' && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{locationError}</Text>
-        </View>
-      )}
-    </SafeAreaView>
+        {locationError !== '' && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{locationError}</Text>
+          </View>
+        )}
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 

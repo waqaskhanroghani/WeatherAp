@@ -1,14 +1,27 @@
 import React from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  SafeAreaView,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { FontAwesome } from '@expo/vector-icons';
 import { useWeather } from '../../context/WeatherContext';
-import { WeatherData } from '../../types/weather';
 
 export default function FavoritesScreen() {
-  const { favorites, weatherData, isCelsius, toggleFavorite } = useWeather();
+  const {
+    weatherData,
+    favorites,
+    isCelsius,
+    isDarkMode,
+    toggleFavorite,
+  } = useWeather();
 
-  const getFavoriteData = (city: string): WeatherData | undefined => {
-    return weatherData.find((item) => item.city === city);
+  const getFavoriteWeather = (city: string) => {
+    return weatherData.find(data => data.city === city);
   };
 
   const getTemperature = (temp: number) => {
@@ -18,25 +31,25 @@ export default function FavoritesScreen() {
 
   const getWeatherBackground = (weather: string) => {
     switch (weather.toLowerCase()) {
-      case 'sunny':
-        return { backgroundColor: '#FFD700' };
-      case 'cloudy':
-        return { backgroundColor: '#808080' };
-      case 'rainy':
-        return { backgroundColor: '#4682B4' };
-      default:
-        return { backgroundColor: '#87CEEB' };
+      case 'sunny': return { backgroundColor: '#FFD700' };
+      case 'cloudy': return { backgroundColor: '#808080' };
+      case 'rainy': return { backgroundColor: '#4682B4' };
+      default: return { backgroundColor: '#87CEEB' };
     }
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, isDarkMode && styles.darkContainer]}>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+      
       {favorites.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <FontAwesome name="star-o" size={64} color="#666" />
-          <Text style={styles.emptyText}>No favorite cities yet</Text>
-          <Text style={styles.emptySubText}>
-            Add cities to your favorites from the weather screen
+          <FontAwesome name="star-o" size={50} color={isDarkMode ? '#666' : '#999'} />
+          <Text style={[styles.emptyText, isDarkMode && styles.darkText]}>
+            No favorite cities yet
+          </Text>
+          <Text style={[styles.subText, isDarkMode && styles.darkText]}>
+            Add cities to favorites from the weather screen
           </Text>
         </View>
       ) : (
@@ -45,38 +58,43 @@ export default function FavoritesScreen() {
           keyExtractor={(item) => item}
           contentContainerStyle={styles.listContainer}
           renderItem={({ item }) => {
-            const cityData = getFavoriteData(item);
-            if (!cityData) return null;
+            const weatherInfo = getFavoriteWeather(item);
+            if (!weatherInfo) return null;
 
             return (
-              <View
-                style={[styles.favoriteItem, getWeatherBackground(cityData.weather)]}
-              >
-                <View style={styles.favoriteContent}>
-                  <View>
-                    <Text style={styles.cityName}>{cityData.city}</Text>
-                    <Text style={styles.weatherText}>{cityData.weather}</Text>
-                  </View>
-                  <View style={styles.rightContent}>
-                    <Text style={styles.temperature}>
-                      {getTemperature(cityData.temperature)}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => toggleFavorite(cityData.city)}
-                      style={styles.favoriteButton}
-                    >
-                      <FontAwesome name="star" size={24} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
+              <View style={[
+                styles.favoriteItem,
+                getWeatherBackground(weatherInfo.weather)
+              ]}>
+                <View style={styles.favoriteHeader}>
+                  <Text style={styles.cityName}>{weatherInfo.city}</Text>
+                  <TouchableOpacity
+                    onPress={() => toggleFavorite(weatherInfo.city)}
+                    style={styles.favoriteButton}
+                  >
+                    <FontAwesome name="star" size={24} color="#fff" />
+                  </TouchableOpacity>
                 </View>
+
+                <Text style={styles.temperature}>
+                  {getTemperature(weatherInfo.temperature)}
+                </Text>
+                <Text style={styles.weatherCondition}>
+                  {weatherInfo.weather}
+                </Text>
+
                 <View style={styles.weatherDetails}>
                   <View style={styles.weatherDetail}>
-                    <FontAwesome name="tint" size={16} color="#fff" />
-                    <Text style={styles.detailText}>{cityData.humidity}%</Text>
+                    <FontAwesome name="tint" size={20} color="#fff" />
+                    <Text style={styles.detailText}>
+                      {weatherInfo.humidity}%
+                    </Text>
                   </View>
                   <View style={styles.weatherDetail}>
-                    <FontAwesome name="wind" size={16} color="#fff" />
-                    <Text style={styles.detailText}>{cityData.windSpeed} km/h</Text>
+                    <FontAwesome name="wind" size={20} color="#fff" />
+                    <Text style={styles.detailText}>
+                      {weatherInfo.windSpeed} km/h
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -84,14 +102,17 @@ export default function FavoritesScreen() {
           }}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
+  },
+  darkContainer: {
+    backgroundColor: '#1a1a1a',
   },
   listContainer: {
     padding: 16,
@@ -105,63 +126,58 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 20,
     color: '#666',
-    marginTop: 16,
+    marginTop: 20,
+    textAlign: 'center',
   },
-  emptySubText: {
+  subText: {
     fontSize: 16,
     color: '#999',
+    marginTop: 10,
     textAlign: 'center',
-    marginTop: 8,
+  },
+  darkText: {
+    color: '#fff',
   },
   favoriteItem: {
-    borderRadius: 12,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
-    padding: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
-  favoriteContent: {
+  favoriteHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  rightContent: {
-    alignItems: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   cityName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
   },
-  weatherText: {
-    fontSize: 16,
-    color: '#fff',
-    marginTop: 4,
+  favoriteButton: {
+    padding: 5,
   },
   temperature: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 8,
+    marginBottom: 5,
   },
-  favoriteButton: {
-    padding: 8,
+  weatherCondition: {
+    fontSize: 20,
+    color: '#fff',
+    marginBottom: 15,
   },
   weatherDetails: {
     flexDirection: 'row',
-    marginTop: 16,
-    gap: 16,
+    justifyContent: 'space-around',
   },
   weatherDetail: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   detailText: {
     color: '#fff',
-    fontSize: 14,
+    marginTop: 5,
+    fontSize: 16,
   },
 });
